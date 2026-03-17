@@ -1,34 +1,38 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBasic , HTTPBasicCredentials
+from fastapi.security import HTTPBasic,HTTPBasicCredentials
 from .model import StudentUser, TeacherUser
 from config.db import users_collection
-from .hash_utils import hash_password , verify_password
+from .hash_utils import hash_password,verify_password
 
-router = APIRouter()
-security = HTTPBasic()
+
+router=APIRouter()
+security=HTTPBasic()
+
 
 
 def authenticate(credentials:HTTPBasicCredentials=Depends(security)):
-    """Authenticate a user using HTTP Basic Auth."""
-    user_record = users_collection.find_one({"username":credentials.username})
-    if not user_record or not verify_password(credentials.password, user_record["password"]):
+    """Authenticates a user using HTTP Basic Auth"""
+    user=users_collection.find_one({"username":credentials.username})
+    if not user or not verify_password(credentials.password,user.get("password")):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {
-        "username": user_record["username"],
-        "fullname": user_record["fullname"],
-        "email": user_record["email"],
-        "role": user_record["role"],
+        "username":user.get("username"),
+        "role":user.get("role"),
+        "grade":user.get("grade"),
+        "user_id":str(user.get("_id"))
     }
-    
+
 
 
 @router.post("/signup/student")
 def signup_student(req:StudentUser):
-    """Handles a student signup request"""
+    """Hnadles a student signup request"""
+    
     if users_collection.find_one({"username":req.username}):
         raise HTTPException(status_code=400, detail="Username already exists")
     
-    hashed_password = hash_password(req.password)
+    
+    hashed_password=hash_password(req.password)
     users_collection.insert_one({
         "fullname":req.fullname,
         "email":req.email,
@@ -40,13 +44,16 @@ def signup_student(req:StudentUser):
     })
     return {"message":"Student user created successfully"}
 
+
 @router.post("/signup/teacher")
-def signup_teacher(req:TeacherUser):
-    """Handles a Teacher signup request"""
+def teacher_student(req:TeacherUser):
+    """Hnadles a Teacher signup request"""
+    
     if users_collection.find_one({"username":req.username}):
         raise HTTPException(status_code=400, detail="Username already exists")
     
-    hashed_password = hash_password(req.password)
+    
+    hashed_password=hash_password(req.password)
     users_collection.insert_one({
         "fullname":req.fullname,
         "email":req.email,
@@ -56,9 +63,9 @@ def signup_teacher(req:TeacherUser):
         "school":req.school,
     })
     return {"message":"Teacher user created successfully"}
+    
 
 @router.get("/login")
 def login(user=Depends(authenticate)):
-    """Handles a login request"""
-    return {"message":f"Welcome {user}!"}
-
+    """Handles user login"""
+    return {"message":f"Welcome {user['username']}","role":user["role"]}
